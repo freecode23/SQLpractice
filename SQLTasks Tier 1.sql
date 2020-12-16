@@ -1,10 +1,4 @@
-/* Welcome to the SQL mini project. You will carry out this project partly in
-the PHPMyAdmin interface, and partly in Jupyter via a Python connection.
-
-This is Tier 1 of the case study, which means that there'll be more guidance for you about how to 
-setup your local SQLite connection in PART 2 of the case study. 
-
-The questions in the case study are exactly the same as with Tier 2. 
+/* 
 
 PART 1: PHPMyAdmin
 You will complete questions 1-9 below in the PHPMyAdmin interface. 
@@ -147,12 +141,77 @@ QUESTIONS:
 /* Q10: Produce a list of facilities with a total revenue less than 1000.
 The output of facility name and total revenue, sorted by revenue. Remember
 that there's a different cost for guests and members! */
+SELECT 
+	-- simple col:
+	facname,
+	facid,
+	bookid,
+	t.totslot AS numberOfSlots,
+	-- col 2
+	CASE WHEN bookmemid != 0 THEN membercost
+	ELSE guestcost END AS priceperslot,
+
+	-- col 3
+	CASE WHEN bookmemid != 0 THEN t.totslot * membercost
+	ELSE t.totslot * guestcost END AS sales
+	
+FROM( 
+    SELECT 	f.name	AS facname,
+    		f.facid AS facid,
+    		b.facid AS bookid,
+    		b.memid AS bookmemid,
+    		f.guestcost AS guestcost,
+    		f.membercost AS membercost,
+    		SUM(b.slots) AS totslot
+	FROM	`Facilities` AS f
+	INNER JOIN `Bookings` AS b
+	ON b.facid = f.facid
+	GROUP BY f.name) AS t
+-- How do I refer to sales column
+-- I want to do  WHERE sales <1000
 
 /* Q11: Produce a report of members and who recommended them in alphabetic surname,firstname order */
-
+SELECT 
+	m.memid,
+	m.recommendedby,
+	concat(m.firstname, ' ',m.surname) AS member,
+	CASE WHEN m.recommendedby = 0 THEN 'none'
+	ELSE concat(r.firstname, ' ',r.surname)END AS recommender
+FROM `Members` AS m
+INNER JOIN `Members` AS r ON r.memid = m.recommendedby
+ORDER BY m.joindate
+/*
+         M                                                   R
+id name     recommendedby  | <--- follow M.recommendedby| id    name
+1  A        2              |                            |  2      B
+2  B        3              |                            |  3      C
+3  C        1              |                            |  1      A
+*/
 
 /* Q12: Find the facilities with their usage by member, but not guests */
-
+SELECT 
+	f.name,
+	COUNT(b.memid) AS mem_usage
+-- 1. GET table of bookings that doesnt have guest as visitors
+FROM(
+        -- 1.1. select the columns that we need for main query
+   	 	SELECT facid, memid
+    	FROM `Bookings`
+    	WHERE memid != 0
+     ) 	AS b
+-- 2. Join this with facilities table
+LEFT JOIN `Facilities` AS f ON f.facid = b.facid
+GROUP BY f.name;
 
 /* Q13: Find the facilities usage by month, but not guests */
-
+SELECT 
+	month,
+	COUNT(memid) AS usagePerMonth
+FROM
+	(SELECT month(starttime) AS month,
+	  	    memid,
+     		facid
+	 FROM   `Bookings`
+	 WHERE memid != 0) AS b
+LEFT JOIN `Facilities` AS f ON f.facid = b.facid
+GROUP BY month
